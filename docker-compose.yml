@@ -1,0 +1,24 @@
+version: "3.8"
+
+services:
+  ffmpeg-audiobook:
+    image: linuxserver/ffmpeg:latest
+    container_name: ffmpeg-audiobook
+    volumes:
+      - ./input:/input:ro
+      - ./output:/output
+      - ./src:/src:ro
+    working_dir: /input
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      "
+      apt-get update && apt-get install -y bc && \
+      sh /src/extract_cover.sh && \
+      sh /src/generate_chapters.sh && \
+      ls -1 *.mp3 | sort | sed \"s|^|file '/input/|; s|\$|'|\" > /tmp/list.txt && \
+      if [ -f /tmp/cover.jpg ]; then \
+        ffmpeg -f concat -safe 0 -i /tmp/list.txt -i /tmp/cover.jpg -f ffmetadata -i /tmp/chapters.txt -map 0:a -map 1 -c:a aac -b:a 128k -c:v copy -movflags +faststart -map_metadata 2 -disposition:v:0 attached_pic /output/audiobook.m4b; \
+      else \
+        ffmpeg -f concat -safe 0 -i /tmp/list.txt -f ffmetadata -i /tmp/chapters.txt -map 0:a -c:a aac -b:a 128k -movflags +faststart -map_metadata 1 /output/audiobook.m4b; \
+      fi
+      "
